@@ -1,13 +1,485 @@
-<legend>
-    <h2>Categories</h2>
-    <ul>
-        <li>Alkali</li>
-        <li>Alkaline Earth</li>
-        <li>Transition Metals</li>
-        <li>Post-transition Metals</li>
-        <li>Metalloids</li>
-        <li>Nonmetals</li>
-        <li>Halogens</li>
-        <li>Noble Gases</li>
-    </ul>
-</legend>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Periodic Table & Atom Visualizer</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --text-color: #e0e0e0;
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff00ff;
+            --neon-green: #00ff41;
+            --neon-yellow: #ffee00;
+            --neon-orange: #ff9d00;
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* --- Header & Search --- */
+        header {
+            width: 100%;
+            max-width: 1400px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        h1 {
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--neon-blue);
+            color: var(--neon-blue);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        input#search {
+            background: var(--glass);
+            border: var(--border);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            width: 250px;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        input#search:focus {
+            box-shadow: 0 0 15px var(--neon-pink);
+            border-color: var(--neon-pink);
+        }
+
+        /* --- Periodic Table Grid --- */
+        .periodic-table {
+            display: grid;
+            grid-template-columns: repeat(18, 1fr);
+            grid-gap: 8px;
+            max-width: 1400px;
+            width: 100%;
+            position: relative;
+        }
+
+        .element {
+            position: relative;
+            background: var(--glass);
+            border: var(--border);
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+            user-select: none;
+        }
+
+        .element:hover {
+            transform: scale(1.1);
+            z-index: 10;
+            background: rgba(255,255,255,0.15);
+            box-shadow: 0 0 20px currentColor;
+        }
+
+        /* Typography inside element */
+        .at-num { font-size: 0.7rem; position: absolute; top: 4px; left: 4px; opacity: 0.7; }
+        .symbol { font-size: 1.4rem; font-weight: bold; text-shadow: 0 0 5px currentColor; }
+        .name { font-size: 0.55rem; margin-top: 2px; text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 90%; opacity: 0.8; }
+
+        /* Category Coloring (Applied via JS inline styles, but defaults here) */
+        .cat-alkali { color: var(--neon-pink); border-color: var(--neon-pink); }
+        .cat-alkaline { color: var(--neon-orange); border-color: var(--neon-orange); }
+        .cat-transition { color: var(--neon-yellow); border-color: var(--neon-yellow); }
+        .cat-noble { color: var(--neon-blue); border-color: var(--neon-blue); }
+        .cat-halogen { color: var(--neon-green); border-color: var(--neon-green); }
+        .cat-other { color: #fff; border-color: #fff; }
+
+        /* Empty spacers for the grid structure */
+        .spacer { pointer-events: none; }
+        
+        /* Lanthanides and Actinides spacing */
+        .f-block-spacer { grid-column: 1 / span 18; height: 20px; pointer-events: none; }
+
+        /* --- Atom Visualizer Overlay --- */
+        #atom-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(10px);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #atom-overlay.active { display: flex; opacity: 1; }
+
+        .atom-container {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Nucleus */
+        .nucleus-group {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: vibrate 0.5s infinite linear alternate;
+        }
+
+        .proton, .neutron {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            box-shadow: 0 0 10px currentColor;
+        }
+        .proton { background: var(--neon-pink); transform: translate(-5px, -5px); }
+        .neutron { background: var(--neon-blue); transform: translate(5px, 5px); }
+        .nucleus-glow {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
+            border-radius: 50%;
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+
+        /* Shells */
+        .shell {
+            position: absolute;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(255,255,255,0.1);
+        }
+
+        /* Electron */
+        .electron {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 8px;
+            height: 8px;
+            background: var(--neon-green);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--neon-green);
+            transform-origin: center center;
+        }
+
+        /* Info Panel in Overlay */
+        .atom-info {
+            margin-top: 30px;
+            text-align: center;
+        }
+        .atom-info h2 { font-size: 3rem; margin: 0; text-shadow: 0 0 20px currentColor; }
+        .atom-info p { font-size: 1.2rem; margin: 5px 0; color: #aaa; }
+        .close-btn {
+            margin-top: 20px;
+            padding: 10px 30px;
+            background: transparent;
+            border: 2px solid var(--neon-blue);
+            color: var(--neon-blue);
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: 0.3s;
+        }
+        .close-btn:hover { background: var(--neon-blue); color: #000; box-shadow: 0 0 20px var(--neon-blue); }
+
+        /* Animations */
+        @keyframes spin { from { transform: rotate(0deg) translate(var(--r)) rotate(0deg); } to { transform: rotate(360deg) translate(var(--r)) rotate(-360deg); } }
+        /* Alternative spin for pure orbit containers */
+        @keyframes orbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        
+        @keyframes vibrate { 0% { transform: translate(0,0); } 20% { transform: translate(-1px, 1px); } 40% { transform: translate(-1px, -1px); } 60% { transform: translate(1px, 1px); } 80% { transform: translate(1px, -1px); } 100% { transform: translate(0,0); } }
+        @keyframes pulse-glow { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.2); } }
+
+        /* Responsive */
+        @media (max-width: 1000px) {
+            .periodic-table { overflow-x: auto; min-width: 900px; display: flex; flex-wrap: wrap; }
+            .element { width: 5.5%; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Periodic Table by Chirag</h1>
+        <div class="controls">
+            <input type="text" id="search" placeholder="Search element...">
+        </div>
+    </header>
+    
+    <div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap; font-size:0.8rem;">
+        <span style="color:var(--neon-pink)"> Alkali</span>
+        <span style="color:var(--neon-orange)"> Alkaline</span>
+        <span style="color:var(--neon-yellow)"> Transition</span>
+        <span style="color:var(--neon-green)"> Halogen</span>
+        <span style="color:var(--neon-blue)"> Noble</span>
+        <span style="color:white">? Other</span>
+    </div>
+
+    <div class="periodic-table by chirag" id="table-container">
+        </div>
+
+    <div id="atom-overlay">
+        <div class="atom-container" id="atom-visualizer">
+            <div class="nucleus-glow"></div>
+            <div class="nucleus-group">
+                <div class="proton"></div>
+                <div class="neutron"></div>
+            </div>
+            </div>
+        <div class="atom-info" id="atom-details">
+            <h2 id="detail-symbol">H</h2>
+            <p id="detail-name">Hydrogen</p>
+            <p id="detail-number">Atomic Number: 1</p>
+            <p id="detail-config">Electrons: 1</p>
+        </div>
+        <button class="close-btn" onclick="closeAtom()">Close View</button>
+    </div>
+
+    <script>
+        // --- 1. Data Generation (Compressed for 118 Elements) ---
+        // Format: [AtomicNumber, Symbol, Name, Group(Column), Period(Row), CategoryKey]
+        // Categories: 1=Alkali, 2=Alkaline, 3=Transition, 4=Noble, 5=Halogen, 6=Other/Lanthanide/Actinide
+        
+        const elementsRaw = [
+            [1,"H","Hydrogen",1,1,6],[2,"He","Helium",18,1,4],
+            [3,"Li","Lithium",1,2,1],[4,"Be","Beryllium",2,2,2],[5,"B","Boron",13,2,6],[6,"C","Carbon",14,2,6],[7,"N","Nitrogen",15,2,6],[8,"O","Oxygen",16,2,6],[9,"F","Fluorine",17,2,5],[10,"Ne","Neon",18,2,4],
+            [11,"Na","Sodium",1,3,1],[12,"Mg","Magnesium",2,3,2],[13,"Al","Aluminium",13,3,6],[14,"Si","Silicon",14,3,6],[15,"P","Phosphorus",15,3,6],[16,"S","Sulfur",16,3,6],[17,"Cl","Chlorine",17,3,5],[18,"Ar","Argon",18,3,4],
+            [19,"K","Potassium",1,4,1],[20,"Ca","Calcium",2,4,2],[21,"Sc","Scandium",3,4,3],[22,"Ti","Titanium",4,4,3],[23,"V","Vanadium",5,4,3],[24,"Cr","Chromium",6,4,3],[25,"Mn","Manganese",7,4,3],[26,"Fe","Iron",8,4,3],[27,"Co","Cobalt",9,4,3],[28,"Ni","Nickel",10,4,3],[29,"Cu","Copper",11,4,3],[30,"Zn","Zinc",12,4,3],[31,"Ga","Gallium",13,4,6],[32,"Ge","Germanium",14,4,6],[33,"As","Arsenic",15,4,6],[34,"Se","Selenium",16,4,6],[35,"Br","Bromine",17,4,5],[36,"Kr","Krypton",18,4,4],
+            [37,"Rb","Rubidium",1,5,1],[38,"Sr","Strontium",2,5,2],[39,"Y","Yttrium",3,5,3],[40,"Zr","Zirconium",4,5,3],[41,"Nb","Niobium",5,5,3],[42,"Mo","Molybdenum",6,5,3],[43,"Tc","Technetium",7,5,3],[44,"Ru","Ruthenium",8,5,3],[45,"Rh","Rhodium",9,5,3],[46,"Pd","Palladium",10,5,3],[47,"Ag","Silver",11,5,3],[48,"Cd","Cadmium",12,5,3],[49,"In","Indium",13,5,6],[50,"Sn","Tin",14,5,6],[51,"Sb","Antimony",15,5,6],[52,"Te","Tellurium",16,5,6],[53,"I","Iodine",17,5,5],[54,"Xe","Xenon",18,5,4],
+            [55,"Cs","Caesium",1,6,1],[56,"Ba","Barium",2,6,2],[57,"La","Lanthanum",3,6,6],[72,"Hf","Hafnium",4,6,3],[73,"Ta","Tantalum",5,6,3],[74,"W","Tungsten",6,6,3],[75,"Re","Rhenium",7,6,3],[76,"Os","Osmium",8,6,3],[77,"Ir","Iridium",9,6,3],[78,"Pt","Platinum",10,6,3],[79,"Au","Gold",11,6,3],[80,"Hg","Mercury",12,6,3],[81,"Tl","Thallium",13,6,6],[82,"Pb","Lead",14,6,6],[83,"Bi","Bismuth",15,6,6],[84,"Po","Polonium",16,6,6],[85,"At","Astatine",17,6,5],[86,"Rn","Radon",18,6,4],
+            [87,"Fr","Francium",1,7,1],[88,"Ra","Radium",2,7,2],[89,"Ac","Actinium",3,7,6],[104,"Rf","Rutherfordium",4,7,3],[105,"Db","Dubnium",5,7,3],[106,"Sg","Seaborgium",6,7,3],[107,"Bh","Bohrium",7,7,3],[108,"Hs","Hassium",8,7,3],[109,"Mt","Meitnerium",9,7,3],[110,"Ds","Darmstadtium",10,7,3],[111,"Rg","Roentgenium",11,7,3],[112,"Cn","Copernicium",12,7,3],[113,"Nh","Nihonium",13,7,6],[114,"Fl","Flerovium",14,7,6],[115,"Mc","Moscovium",15,7,6],[116,"Lv","Livermorium",16,7,6],[117,"Ts","Tennessine",17,7,5],[118,"Og","Oganesson",18,7,4]
+        ];
+
+        // Lanthanides (Row 8 visually)
+        const lanthanides = [
+            [58,"Ce","Cerium",4,8,6],[59,"Pr","Praseodymium",5,8,6],[60,"Nd","Neodymium",6,8,6],[61,"Pm","Promethium",7,8,6],[62,"Sm","Samarium",8,8,6],[63,"Eu","Europium",9,8,6],[64,"Gd","Gadolinium",10,8,6],[65,"Tb","Terbium",11,8,6],[66,"Dy","Dysprosium",12,8,6],[67,"Ho","Holmium",13,8,6],[68,"Er","Erbium",14,8,6],[69,"Tm","Thulium",15,8,6],[70,"Yb","Ytterbium",16,8,6],[71,"Lu","Lutetium",17,8,6]
+        ];
+        
+        // Actinides (Row 9 visually)
+        const actinides = [
+            [90,"Th","Thorium",4,9,6],[91,"Pa","Protactinium",5,9,6],[92,"U","Uranium",6,9,6],[93,"Np","Neptunium",7,9,6],[94,"Pu","Plutonium",8,9,6],[95,"Am","Americium",9,9,6],[96,"Cm","Curium",10,9,6],[97,"Bk","Berkelium",11,9,6],[98,"Cf","Californium",12,9,6],[99,"Es","Einsteinium",13,9,6],[100,"Fm","Fermium",14,9,6],[101,"Md","Mendelevium",15,9,6],[102,"No","Nobelium",16,9,6],[103,"Lr","Lawrencium",17,9,6]
+        ];
+
+        // Full dataset combine
+        const allElements = [...elementsRaw, ...lanthanides, ...actinides];
+
+        const catColors = {
+            1: 'var(--neon-pink)', 
+            2: 'var(--neon-orange)', 
+            3: 'var(--neon-yellow)', 
+            4: 'var(--neon-blue)', 
+            5: 'var(--neon-green)', 
+            6: 'white'
+        };
+        
+        const catClass = {
+            1: 'cat-alkali', 2: 'cat-alkaline', 3: 'cat-transition', 4: 'cat-noble', 5: 'cat-halogen', 6: 'cat-other'
+        };
+
+        const container = document.getElementById('table-container');
+
+        // --- 2. Grid Rendering Logic ---
+        // We need to map [Column, Row] to Grid Index, handling gaps.
+        // Standard grid is 18 cols x 7 rows (plus 2 rows for f-block).
+        
+        function renderTable() {
+            container.innerHTML = '';
+            
+            // Map for quick lookup to check if a grid cell is occupied
+            const map = {}; 
+            allElements.forEach(el => {
+                map[`${el[3]}-${el[4]}`] = el;
+            });
+
+            // Iterate through rows 1 to 9 (7 main + 2 f-block)
+            // Note: f-block visual adjustment
+            for(let r=1; r<=9; r++) {
+                // Spacer for F-block gap between row 7 and 8
+                if(r === 8) {
+                     const spacer = document.createElement('div');
+                     spacer.className = 'f-block-spacer';
+                     container.appendChild(spacer);
+                }
+
+                for(let c=1; c<=18; c++) {
+                    const data = map[`${c}-${r}`];
+                    
+                    if(data) {
+                        const [num, sym, name, col, row, cat] = data;
+                        const elDiv = document.createElement('div');
+                        elDiv.className = `element ${catClass[cat]}`;
+                        // Inline style for glow color consistency
+                        elDiv.style.color = catColors[cat]; 
+                        elDiv.onclick = () => openAtom(data);
+                        
+                        elDiv.innerHTML = `
+                            <span class="at-num">${num}</span>
+                            <span class="symbol">${sym}</span>
+                            <span class="name">${name}</span>
+                        `;
+                        container.appendChild(elDiv);
+                    } else {
+                        // Empty cell
+                        if(r < 8) { // Only add spacers for main table, f-block is handled via CSS positioning usually, but here we explicitly grid it
+                            const spacer = document.createElement('div');
+                            spacer.className = 'spacer';
+                            container.appendChild(spacer);
+                        } else if (r >= 8 && c < 4) {
+                             // Spacers to indent lanthanides/actinides
+                             const spacer = document.createElement('div');
+                             spacer.className = 'spacer';
+                             container.appendChild(spacer);
+                        }
+                    }
+                }
+            }
+        }
+
+        renderTable();
+
+        // --- 3. Search Logic ---
+        document.getElementById('search').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const els = document.querySelectorAll('.element');
+            els.forEach(el => {
+                const text = el.innerText.toLowerCase();
+                if(text.includes(query)) {
+                    el.style.opacity = '1';
+                    el.style.transform = 'scale(1)';
+                    el.style.filter = 'grayscale(0)';
+                } else {
+                    el.style.opacity = '0.1';
+                    el.style.transform = 'scale(0.9)';
+                    el.style.filter = 'grayscale(1)';
+                }
+            });
+        });
+
+        // --- 4. Atom Visualizer Logic ---
+        function openAtom(data) {
+            const [num, sym, name, col, row, cat] = data;
+            const overlay = document.getElementById('atom-overlay');
+            const visualizer = document.getElementById('atom-visualizer');
+            
+            // Set text details
+            document.getElementById('detail-symbol').innerText = sym;
+            document.getElementById('detail-symbol').style.color = catColors[cat];
+            document.getElementById('detail-name').innerText = name;
+            document.getElementById('detail-number').innerText = `Atomic Number: ${num}`;
+            document.getElementById('detail-config').innerText = `Electrons: ${num}`;
+
+            // Clear previous shells (keep nucleus)
+            const shells = visualizer.querySelectorAll('.shell, .electron-container');
+            shells.forEach(s => s.remove());
+
+            // Generate Shells
+            // Simplified shell logic: 2, 8, 18, 32... 
+            // We won't implement full quantum config for simplicity, just a visual approximation based on shells count
+            
+            const maxShells = row > 7 ? 7 : row; // Approximate shells by period
+            let electronsRemaining = num;
+            const shellCaps = [2, 8, 18, 32, 32, 18, 8]; 
+
+            for(let i=0; i<maxShells; i++) {
+                if (electronsRemaining <= 0) break;
+
+                const count = Math.min(electronsRemaining, shellCaps[i] || 8);
+                electronsRemaining -= count;
+
+                // Create Shell Ring
+                const radius = 60 + (i * 35); // Expand radius
+                const shell = document.createElement('div');
+                shell.className = 'shell';
+                shell.style.width = `${radius * 2}px`;
+                shell.style.height = `${radius * 2}px`;
+                // Center it
+                shell.style.top = `calc(50% - ${radius}px)`;
+                shell.style.left = `calc(50% - ${radius}px)`;
+                visualizer.appendChild(shell);
+
+                // Add Electrons
+                const duration = 3 + (i * 1.5); // Outer shells move slower
+                
+                // We create a container that spins for the whole shell of electrons
+                const spinContainer = document.createElement('div');
+                spinContainer.style.position = 'absolute';
+                spinContainer.style.width = '100%';
+                spinContainer.style.height = '100%';
+                spinContainer.style.animation = `orbit ${duration}s linear infinite`;
+                
+                // Add individual electrons to the spin container
+                for(let e=0; e<count; e++) {
+                    const electron = document.createElement('div');
+                    electron.className = 'electron';
+                    // Distribute electrons evenly on the circle
+                    const angle = (360 / count) * e;
+                    // Trigonometry to place on circle edge
+                    // But since the container spins, we just place them statically relative to container center
+                    // Actually, simpler CSS: Rotate the electron div, translate outwards
+                    
+                    electron.style.transform = `rotate(${angle}deg) translate(${radius}px) rotate(-${angle}deg)`;
+                    // Note: The second rotate keeps the electron dot oriented up if it had an image, irrelevant for a dot but good practice.
+                    
+                    spinContainer.appendChild(electron);
+                }
+                
+                // To center the spin container in the visualizer:
+                spinContainer.style.top = '0';
+                spinContainer.style.left = '0';
+                // Actually, the spin container needs to be same size as visualizer or centered. 
+                // Let's attach spinContainer to the visualizer and center it.
+                spinContainer.style.width = '0px'; 
+                spinContainer.style.height = '0px'; 
+                spinContainer.style.top = '50%'; 
+                spinContainer.style.left = '50%';
+                
+                visualizer.appendChild(spinContainer);
+            }
+
+            overlay.classList.add('active');
+        }
+
+        function closeAtom() {
+            document.getElementById('atom-overlay').classList.remove('active');
+        }
+
+    </script>
+</body>
+</html>
