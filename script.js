@@ -1,85 +1,75 @@
 let compareMode = false;
 let selectedElements = [];
 
-// Toggle Button Logic
+// 1. Fix the Toggle Button
 document.getElementById('compare-toggle').onclick = (e) => {
     compareMode = !compareMode;
-    selectedElements = []; // Reset any partial selection
-    
-    if (compareMode) {
-        e.target.innerText = "Mode: Click 2 Elements";
-        e.target.style.borderColor = "var(--neon-pink)";
-        e.target.style.color = "var(--neon-pink)";
-    } else {
-        e.target.innerText = "Mode: Normal";
-        e.target.style.borderColor = "var(--neon-blue)";
-        e.target.style.color = "var(--neon-blue)";
-    }
+    selectedElements = []; // Clear previous clicks
+    e.target.innerText = compareMode ? "Mode: Click 2 Elements" : "Mode: Normal";
+    e.target.style.boxShadow = compareMode ? "0 0 15px var(--neon-pink)" : "none";
 };
 
+// 2. The Main Click Function
 function openAtom(data) {
+    const overlay = document.getElementById('atom-overlay');
+    
     if (!compareMode) {
-        // NORMAL MODE: Single View
-        const overlay = document.getElementById('atom-overlay');
+        // NORMAL VIEW
         overlay.innerHTML = `
-            <div class="atom-container" id="atom-visualizer">
+            <div class="atom-container" id="visualizer-single">
                 <div class="nucleus-glow"></div>
                 <div class="nucleus-group"><div class="proton"></div><div class="neutron"></div></div>
             </div>
             <div class="atom-info">
                 <h2 style="color:${catColors[data[5]]}">${data[1]}</h2>
                 <p>${data[2]}</p>
-                <p>Atomic Number: ${data[0]}</p>
             </div>
-            <button class="close-btn" onclick="closeAtom()">Close View</button>
+            <button class="close-btn" onclick="closeAtom()">Close</button>
         `;
-        renderAtomVisuals(data, 'atom-visualizer');
-        overlay.classList.add('active');
+        renderAtomVisuals(data, 'visualizer-single');
+        overlay.style.display = 'flex';
+        setTimeout(() => overlay.classList.add('active'), 10);
     } else {
-        // COMPARE MODE: Collect 2 elements
-        if (selectedElements.length < 2) {
-            selectedElements.push(data);
-            // Optional: Visual feedback on the table cell
-            alert(`Selected ${data[2]}. Now select one more.`);
-        }
+        // COMPARE VIEW
+        selectedElements.push(data);
         
+        // Give visual feedback that the first one was clicked
+        const cells = document.querySelectorAll('.element');
+        cells.forEach(c => { if(c.innerText.includes(data[1])) c.style.border = "2px solid white"; });
+
         if (selectedElements.length === 2) {
-            startComparison(selectedElements[0], selectedElements[1]);
-            selectedElements = []; // Reset
+            overlay.innerHTML = `
+                <div class="comparison-wrapper">
+                    <div class="comparison-item">
+                        <div class="atom-container" id="viz-left">
+                            <div class="nucleus-glow"></div>
+                            <div class="nucleus-group"><div class="proton"></div><div class="neutron"></div></div>
+                        </div>
+                        <div class="atom-info"><h2>${selectedElements[0][1]}</h2></div>
+                    </div>
+                    <div style="font-size: 2rem; color: var(--neon-pink); font-weight: bold;">VS</div>
+                    <div class="comparison-item">
+                        <div class="atom-container" id="viz-right">
+                            <div class="nucleus-glow"></div>
+                            <div class="nucleus-group"><div class="proton"></div><div class="neutron"></div></div>
+                        </div>
+                        <div class="atom-info"><h2>${selectedElements[1][1]}</h2></div>
+                    </div>
+                </div>
+                <button class="close-btn" onclick="closeAtom()">Exit Comparison</button>
+            `;
+            renderAtomVisuals(selectedElements[0], 'viz-left');
+            renderAtomVisuals(selectedElements[1], 'viz-right');
+            overlay.style.display = 'flex';
+            overlay.classList.add('active');
+            selectedElements = []; // Reset for next time
+            // Remove the white borders from the table
+            setTimeout(() => { cells.forEach(c => c.style.border = ""); }, 1000);
         }
     }
 }
 
-function startComparison(el1, el2) {
-    const overlay = document.getElementById('atom-overlay');
-    overlay.classList.add('active');
-    
-    overlay.innerHTML = `
-        <div class="comparison-wrapper">
-            <div class="comparison-item">
-                <div class="atom-container" id="atom-left">
-                     <div class="nucleus-glow"></div>
-                     <div class="nucleus-group"><div class="proton"></div><div class="neutron"></div></div>
-                </div>
-                <div class="atom-info"><h2>${el1[1]}</h2><p>${el1[2]}</p></div>
-            </div>
-            <div style="font-size: 3rem; color: var(--neon-pink);">VS</div>
-            <div class="comparison-item">
-                <div class="atom-container" id="atom-right">
-                     <div class="nucleus-glow"></div>
-                     <div class="nucleus-group"><div class="proton"></div><div class="neutron"></div></div>
-                </div>
-                <div class="atom-info"><h2>${el2[1]}</h2><p>${el2[2]}</p></div>
-            </div>
-        </div>
-        <button class="close-btn" onclick="closeAtom()">Exit Comparison</button>
-    `;
-
-    renderAtomVisuals(el1, 'atom-left');
-    renderAtomVisuals(el2, 'atom-right');
-}
-
-// Move your existing shell/electron drawing code into this reusable function
+// 3. The Visuals Generator (The core engine)
 function renderAtomVisuals(data, containerId) {
     const num = data[0];
     const row = data[4];
@@ -94,7 +84,8 @@ function renderAtomVisuals(data, containerId) {
         const count = Math.min(electronsRemaining, shellCaps[i] || 8);
         electronsRemaining -= count;
 
-        const radius = 50 + (i * 30); // Slightly smaller for comparison
+        const radius = (containerId === 'visualizer-single') ? 60 + (i * 35) : 40 + (i * 25);
+        
         const shell = document.createElement('div');
         shell.className = 'shell';
         shell.style.width = `${radius * 2}px`;
@@ -121,7 +112,7 @@ function renderAtomVisuals(data, containerId) {
 }
 
 function closeAtom() {
-    document.getElementById('atom-overlay').classList.remove('active');
-    // Clear overlay content so it doesn't "flash" next time
-    document.getElementById('atom-overlay').innerHTML = ''; 
+    const overlay = document.getElementById('atom-overlay');
+    overlay.classList.remove('active');
+    setTimeout(() => { overlay.style.display = 'none'; }, 300);
 }
